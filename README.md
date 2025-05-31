@@ -1,4 +1,3 @@
-
 # nanoGPT
 
 ![nanoGPT](assets/nanogpt.jpg)
@@ -12,7 +11,7 @@ Because the code is so simple, it is very easy to hack to your needs, train new 
 ## install
 
 ```
-pip install torch numpy transformers datasets tiktoken wandb tqdm
+pip install torch numpy transformers datasets tiktoken wandb tqdm requests
 ```
 
 Dependencies:
@@ -24,6 +23,7 @@ Dependencies:
 -  `tiktoken` for OpenAI's fast BPE code <3
 -  `wandb` for optional logging <3
 -  `tqdm` for progress bars <3
+-  `requests` for downloading files in data preparation scripts <3
 
 ## quick start
 
@@ -97,6 +97,51 @@ Not bad for ~3 minutes on a CPU, for a hint of the right character gestalt. If y
 
 Finally, on Apple Silicon Macbooks and with a recent PyTorch version make sure to add `--device=mps` (short for "Metal Performance Shaders"); PyTorch then uses the on-chip GPU that can *significantly* accelerate training (2-3X) and allow you to use larger networks. See [Issue 28](https://github.com/karpathy/nanoGPT/issues/28) for more.
 
+## Training on CogPrime Architecture (AGI Example)
+
+For those interested in training a model on more complex, domain-specific technical text, we've included an example setup for training on documents related to the **CogPrime Artificial General Intelligence (AGI) architecture** and the **OpenCog project**. This will create a model that understands AGI concepts, OpenCog's structure, and even some of its Scheme-based implementation logic.
+
+First, prepare the CogPrime corpus. The `prepare.py` script in `data/cogprime/` gathers text from:
+1.  The main CogPrime architecture paper by Ben Goertzel (downloaded from GitHub).
+2.  Documentation from the `opencog-central` repository (assumes you have a local clone, e.g., alongside `nanoGPT`). This includes READMEs, architectural summaries, implementation guides, and status updates.
+3.  Scheme (`.scm`) files from the `opencog-central` repository, providing examples of OpenCog's underlying logic.
+
+Run the preparation script from the `nanoGPT` root directory:
+```sh
+python data/cogprime/prepare.py
+```
+This will create `train.bin` and `val.bin` in `data/cogprime/`. Check the script's output for any issues with finding local `opencog-central` files. For more details on the data sources and preparation, see `data/cogprime/README.md`.
+
+Now, you can train a model using the provided configuration:
+```sh
+python train.py config/train_cogprime.py
+```
+The `config/train_cogprime.py` file sets up a moderately-sized GPT model (8 layers, 8 heads, 512 embedding dimension, 768 context length) suitable for this specialized corpus. Training will output checkpoints to `out-cogprime`.
+
+Once training is complete (or using an intermediate checkpoint), you can sample from your CogPrime-aware model using the custom sampling script `sample_cogprime.py`. This script includes example prompts tailored to AGI and CogPrime:
+```sh
+python sample_cogprime.py --out_dir=out-cogprime --num_samples=1 --max_new_tokens=200 --start="Explain the concept of Glocal Memory in CogPrime:"
+```
+Hypothetical output might look like:
+```
+Explain the concept of Glocal Memory in CogPrime:
+Glocal memory is a core principle in the CogPrime architecture, proposing that knowledge items are stored both locally and globally. The 'local' aspect refers to an explicit, crisp representation of an item, often a key subnetwork of Atoms. The 'global' aspect, or 'map', is a dispersed, distributed representation of the item across a wider network of associated Atoms. Activation of the key tends to activate the map, and vice-versa. This dual representation allows for the robustness of distributed systems while retaining the precision of localized symbolic structures. For instance, the concept "cat" might have a local key (core defining features) and a global map (a vast web of associations, experiences, and related concepts). This is detailed in Section 5.5 of the CogPrime paper, where it's argued that this overcomes the limitations of purely local or purely global memory systems for achieving efficient AGI.
+```
+Or, prompting for Scheme-like code:
+```sh
+python sample_cogprime.py --out_dir=out-cogprime --num_samples=1 --max_new_tokens=100 --start="(define-link-type HebbianLink"
+```
+Hypothetical output:
+```
+(define-link-type HebbianLink
+  (parent ConceptNode)
+  (parent ConceptNode)
+  (is-symmetric #t)
+  (doc "Represents an associative, attentional relationship between two Atoms. Used by ECAN for importance spreading.")
+  (tv-type :SIMPLE-TRUTH-VALUE)) ; Example, actual type might vary
+```
+This example shows how nanoGPT can be adapted to learn from and generate text about complex, specialized domains like AGI architectures.
+
 ## reproducing GPT-2
 
 A more serious deep learning professional may be more interested in reproducing GPT-2 results. So here we go - we first tokenize the dataset, in this case the [OpenWebText](https://openwebtext2.readthedocs.io/en/latest/), an open reproduction of OpenAI's (private) WebText:
@@ -117,9 +162,9 @@ If you're in a cluster environment and you are blessed with multiple GPU nodes y
 
 ```sh
 # Run on the first (master) node with example IP 123.456.123.456:
-torchrun --nproc_per_node=8 --nnodes=2 --node_rank=0 --master_addr=123.456.123.456 --master_port=1234 train.py
+torchrun --nproc_per_node=8 --nnodes=2 --node_rank=0 --master_addr=123.456.123.456 --master_port=1234 train.py config/train_gpt2.py
 # Run on the worker node:
-torchrun --nproc_per_node=8 --nnodes=2 --node_rank=1 --master_addr=123.456.123.456 --master_port=1234 train.py
+torchrun --nproc_per_node=8 --nnodes=2 --node_rank=1 --master_addr=123.456.123.456 --master_port=1234 train.py config/train_gpt2.py
 ```
 
 It is a good idea to benchmark your interconnect (e.g. iperf3). In particular, if you don't have Infiniband then also prepend `NCCL_IB_DISABLE=1` to the above launches. Your multinode training will work, but most likely _crawl_. By default checkpoints are periodically written to the `--out_dir`. We can sample from the model by simply `python sample.py`.
