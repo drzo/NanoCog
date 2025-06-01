@@ -4,9 +4,9 @@
 
 # --- Output and Logging ---
 out_dir = 'out-cogprime'
-eval_interval = 500 # Evaluate less frequently than very small datasets
-eval_iters = 200    # Number of iterations for validation loss estimation
-log_interval = 10   # Print training loss to console
+eval_interval = 100 # Evaluate more frequently to see progress (was 500)
+eval_iters = 50     # Number of iterations for validation loss estimation (reduced for faster feedback)
+log_interval = 1    # Print training loss to console every iteration for better progress tracking
 
 # Save checkpoints periodically by iteration, as training might be long
 always_save_checkpoint = True

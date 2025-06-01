@@ -246,9 +246,22 @@ if wandb_log and master_process:
     import wandb
     wandb.init(project=wandb_project, name=wandb_run_name, config=config)
 
+# Print training info
+if master_process:
+    print("=" * 70)
+    print(f"🚀 Starting NanoCog CogPrime Training")
+    print(f"📊 Model: {model.get_num_params()/1e6:.1f}M parameters")
+    print(f"🎯 Max iterations: {max_iters:,}")
+    print(f"📦 Batch size: {batch_size} (effective: {batch_size * gradient_accumulation_steps})")
+    print(f"🧠 Block size: {block_size}")
+    print(f"💻 Device: {device}")
+    print(f"📈 Learning rate: {learning_rate}")
+    print("=" * 70)
+
 # training loop
 X, Y = get_batch('train') # fetch the very first batch
 t0 = time.time()
+start_time = time.time()  # Track total training time for ETA calculation
 local_iter_num = 0 # number of iterations in the lifetime of this process
 raw_model = model.module if ddp else model # unwrap DDP container if needed
 running_mfu = -1.0
@@ -262,7 +275,19 @@ while True:
     # evaluate the loss on train/val sets and write checkpoints
     if iter_num % eval_interval == 0 and master_process:
         losses = estimate_loss()
-        print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+        print("\n" + "=" * 70)
+        print(f"📊 EVALUATION at iteration {iter_num}")
+        print(f"🔥 Train loss: {losses['train']:.4f}")
+        print(f"✅ Val loss: {losses['val']:.4f}")
+        
+        # Show if validation loss improved
+        if iter_num > 0:
+            if 'previous_val_loss' in locals() and losses['val'] < previous_val_loss:
+                print("🎉 Validation loss improved!")
+            elif 'previous_val_loss' in locals():
+                print("⚠️  Validation loss increased")
+        previous_val_loss = losses['val']
+        print("=" * 70 + "\n")
         if wandb_log:
             wandb.log({
                 "iter": iter_num,
@@ -324,7 +349,26 @@ while True:
         if local_iter_num >= 5: # let the training loop settle a bit
             mfu = raw_model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9*running_mfu + 0.1*mfu
-        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%")
+        
+        # Calculate progress percentage and ETA
+        progress_pct = (iter_num / max_iters) * 100
+        if iter_num > 0:
+            avg_time_per_iter = (time.time() - start_time) / iter_num
+            eta_seconds = avg_time_per_iter * (max_iters - iter_num)
+            eta_hours = eta_seconds / 3600
+            eta_str = f", ETA: {eta_hours:.1f}h" if eta_hours >= 1 else f", ETA: {eta_seconds/60:.1f}m"
+        else:
+            eta_str = ""
+        
+        print(f"iter {iter_num}/{max_iters} ({progress_pct:.1f}%): loss {lossf:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%{eta_str}")
+        
+        # Print a simple progress bar every 10 iterations
+        if iter_num % (log_interval * 10) == 0:
+            bar_length = 50
+            filled_length = int(bar_length * iter_num / max_iters)
+            bar = '█' * filled_length + '░' * (bar_length - filled_length)
+            print(f"Progress: [{bar}] {progress_pct:.1f}% - Loss: {lossf:.4f}")
+            print("-" * 70)
     iter_num += 1
     local_iter_num += 1
 
