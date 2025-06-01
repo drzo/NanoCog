@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     # --- Define Data Sources ---
     all_text_content = []
-    separator = "\n\n<|endofdocument|>\n\n" # Using a separator might help the model
+    separator = "\n\n===END_OF_DOCUMENT===\n\n" # Using a safe separator that won't conflict with GPT tokens
 
     # 1. CogPrime Main Paper (Fetch from GitHub)
     cogprime_paper_url = "https://raw.githubusercontent.com/drzo/cogprime/main/CogPrime%20-%20An%20Integrative%20Architecture%20for%20Embodied%20Artificial%20General%20Intelligence.md"
@@ -51,7 +51,31 @@ if __name__ == '__main__':
             all_text_content.append(content)
             all_text_content.append(separator)
 
-    # 2. opencog-central Documentation
+    # 2. Local NanoCog Documentation
+    nanocog_docs_base_path = os.path.abspath(os.path.join(current_script_dir, "..", ".."))
+    print(f"Processing local NanoCog docs from: {nanocog_docs_base_path}")
+
+    nanocog_docs_files = [
+        "docs/CogPrime_Integrative_Architecture_AGI.md",
+        "docs/IMPLEMENTATION_GUIDE.md", 
+        "docs/COGPRIME_STATUS_2024.md",
+        "docs/COGPRIME_ARCHITECTURE_DIAGRAM.md",
+        "examples/SIMPLE_COGPRIME_AGENT.md",
+        "MODELS.md",
+        "README.md",
+        "NanoCog/README.md",
+        "NanoCog/docs/optimization_plan.md"
+    ]
+
+    for doc_file in nanocog_docs_files:
+        file_path = os.path.join(nanocog_docs_base_path, doc_file)
+        print(f"Processing local doc: {file_path}")
+        content = read_file_content(file_path)
+        if content:
+            all_text_content.append(content)
+            all_text_content.append(separator)
+
+    # 3. opencog-central Documentation (if available)
     # Assuming opencog-central is a sibling directory to nanoGPT parent, or adjust paths as needed.
     # Path relative to this script: ../../opencog-central/
     opencog_central_base_path = os.path.abspath(os.path.join(current_script_dir, "..", "..", "opencog-central"))
@@ -75,21 +99,27 @@ if __name__ == '__main__':
             all_text_content.append(content)
             all_text_content.append(separator)
 
-    # 3. opencog-central Scheme Files
-    scheme_files_path_pattern = os.path.join(opencog_central_base_path, "Scheme", "**", "*.scm")
-    print(f"Processing opencog-central Scheme files from pattern: {scheme_files_path_pattern}")
+    # 4. Sanitized Scheme Files (converted from .scm to .txt)
+    sanitized_scheme_base_path = os.path.abspath(os.path.join(current_script_dir, "..", "opencog-scheme-txt"))
+    scheme_files_path_pattern = os.path.join(sanitized_scheme_base_path, "**", "*.txt")
+    print(f"Processing sanitized Scheme files from pattern: {scheme_files_path_pattern}")
     scheme_files = glob.glob(scheme_files_path_pattern, recursive=True)
 
     if not scheme_files:
-        print(f"Warning: No Scheme files found at {scheme_files_path_pattern}. Check the path.")
+        print(f"Warning: No sanitized Scheme files found at {scheme_files_path_pattern}.")
+        print("Please run the convert_and_sanitize_scheme.py script first to convert .scm files to sanitized .txt files.")
     else:
-        print(f"Found {len(scheme_files)} Scheme files.")
+        print(f"Found {len(scheme_files)} sanitized Scheme files.")
 
-    for scm_file in scheme_files:
-        print(f"Processing Scheme file: {scm_file}")
-        content = read_file_content(scm_file)
+    for txt_file in scheme_files:
+        if txt_file.endswith('conversion_summary.txt'):
+            continue  # Skip the summary file
+        print(f"Processing sanitized Scheme file: {txt_file}")
+        content = read_file_content(txt_file)
         if content:
-            all_text_content.append(f"\n\n--- Scheme File: {os.path.basename(scm_file)} ---\n")
+            # Get the original .scm filename from the path
+            original_name = os.path.basename(txt_file).replace('.txt', '.scm')
+            all_text_content.append(f"\n\n--- Scheme File: {original_name} ---\n")
             all_text_content.append(content)
             all_text_content.append(separator)
     
