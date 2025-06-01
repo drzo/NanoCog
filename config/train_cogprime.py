@@ -22,20 +22,19 @@ dataset = 'cogprime' # This should match the directory name in data/
 
 # Training hyperparameters
 # Effective batch size will be batch_size * gradient_accumulation_steps
-# E.g., 16 * 4 = 64
-batch_size = 16 # Micro-batch size, adjust based on GPU memory
-gradient_accumulation_steps = 4
+# E.g., 4 * 8 = 32 (smaller for CPU training)
+batch_size = 4  # Smaller micro-batch size for CPU training
+gradient_accumulation_steps = 8
 
-block_size = 768 # Context length: increased for technical documents and code
-                 # Max is 1024 for standard GPT-2 BPE tokenizer if memory allows,
-                 # but 768 is a good compromise.
+block_size = 512 # Context length: reduced for CPU training
+                 # Smaller context size to reduce memory usage on CPU
 
 # --- Model ---
-# A model slightly larger than the Shakespeare example, but smaller than GPT-2 124M
-# Adjust based on available compute and desired model capacity.
-n_layer = 8     # Number of transformer layers
-n_head = 8      # Number of attention heads
-n_embd = 512    # Embedding dimension
+# Smaller model suitable for CPU training
+# Reduced from the original to be more manageable on CPU
+n_layer = 6     # Number of transformer layers (reduced for CPU)
+n_head = 6      # Number of attention heads (reduced for CPU)
+n_embd = 384    # Embedding dimension (reduced for CPU)
 dropout = 0.1   # Dropout rate for regularization (0.0 for no dropout)
 bias = True     # Whether to use bias in Linear and LayerNorm layers.
                 # GPT-2 pretraining often sets bias=False in LayerNorms,
@@ -43,7 +42,7 @@ bias = True     # Whether to use bias in Linear and LayerNorm layers.
 
 # --- Optimizer (AdamW) ---
 learning_rate = 3e-4    # Max learning rate (a common starting point for transformers)
-max_iters = 20000       # Total number of training iterations (adjust based on dataset size and convergence)
+max_iters = 10000       # Reduced iterations for CPU training
 weight_decay = 1e-1     # Weight decay for regularization
 beta1 = 0.9
 beta2 = 0.95            # More stable for AdamW than 0.99 or 0.999 for larger models/datasets
@@ -51,14 +50,14 @@ grad_clip = 1.0         # Clip gradients at this value (0.0 to disable)
 
 # --- Learning Rate Decay ---
 decay_lr = True         # Whether to decay the learning rate
-warmup_iters = 200      # Number of warmup iterations
-lr_decay_iters = 20000  # Should generally be equal to max_iters
+warmup_iters = 100      # Reduced warmup iterations for CPU training
+lr_decay_iters = 10000  # Should generally be equal to max_iters
 min_lr = 3e-5           # Minimum learning rate (learning_rate / 10)
 
 # --- System ---
-device = 'cuda'         # 'cpu', 'cuda', 'cuda:0', 'cuda:1', 'mps' (for Apple Silicon)
-dtype = 'float16'       # 'float32', 'bfloat16', or 'float16'.
-                        # 'float16' uses automatic mixed precision and GradScaler.
+device = 'cpu'          # 'cpu', 'cuda', 'cuda:0', 'cuda:1', 'mps' (for Apple Silicon)
+dtype = 'float32'       # 'float32', 'bfloat16', or 'float16'.
+                        # Using float32 for CPU training as float16 requires CUDA
                         # 'bfloat16' is generally preferred if available (e.g., A100+ GPUs) for stability.
-compile = True          # Use PyTorch 2.0 to compile the model for speed
-                        # Set to False if encountering issues or on platforms without support.
+compile = False         # Use PyTorch 2.0 to compile the model for speed
+                        # Set to False for CPU training and compatibility
