@@ -1,10 +1,16 @@
 function encode(text) {
   const forbiddenTokens = ['<|endoftext|>'];
+  
+  // Filter out forbidden tokens instead of throwing an error
+  let sanitizedText = text;
   forbiddenTokens.forEach(token => {
-    if (text.includes(token)) {
-      throw new Error(`CAPIError: The text contains a special token that is not allowed: ${token}`);
+    if (sanitizedText.includes(token)) {
+      // Replace forbidden tokens with a safe alternative or remove them
+      sanitizedText = sanitizedText.replace(new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '');
+      console.warn(`Warning: Removed forbidden token "${token}" from text`);
     }
   });
-  // Proceed with encoding logic
-  return encodeLogic(text);
+  
+  // Proceed with encoding logic using sanitized text
+  return encodeLogic(sanitizedText);
 }
